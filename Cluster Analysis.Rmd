@@ -1,0 +1,720 @@
+---
+title: "Cluster Analysis - Welfare Regime Typologies: The Six Worlds of Social Inclusion"
+author: "C. Taylor Brown & Anis Ben Brik"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Packages and Data
+
+```{r include = F}
+library(dplyr)
+library(ggplot2)
+library(mclust)
+library(corrr)
+library(ggcorrplot)
+library(FactoMineR)
+library(factoextra)
+library(missMDA)
+library(ggpubr)
+library(factoextra)
+library(readxl)
+library(Ckmeans.1d.dp)
+library(plotrix)
+library(rstatix)
+```
+
+```{r}
+# Insert path to data
+load("~/sdg.RData")
+```
+
+# Descriptive Statistics
+
+```{r}
+sdg %>% group_by(regime) %>% 
+  summarize(across(everything(), .f = list(mean = mean, se = std.error, sd = sd), na.rm = TRUE))
+
+#
+
+SI_COV_BENFTS <- sdg %>% select(name, regime, SI_COV_BENFTS) %>% na.omit() %>% group_by(regime) %>% 
+  summarize(count = n_distinct(name))
+
+SH_ACS_UNHC <- sdg %>% select(name, regime, SH_ACS_UNHC) %>% na.omit() %>% group_by(regime) %>% 
+  summarize(count = n_distinct(name))
+
+SE_TOT_CPLR <- sdg %>% select(name, regime, SE_TOT_CPLR) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+SL_TLF_UEM <- sdg %>% select(name, regime, SL_TLF_UEM) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+IT_MOB_2GNTWK <- sdg %>% select(name, regime, IT_MOB_2GNTWK) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+VC_VOV_GDSD <- sdg %>% select(name, regime, VC_VOV_GDSD) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+SI_POV_50MI <- sdg %>% select(name, regime, SI_POV_50MI) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+SI_HEI_TOTL <- sdg %>% select(name, regime, SI_HEI_TOTL) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+EN_LND_SLUM <- sdg %>% select(name, regime, EN_LND_SLUM) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+VC_SNS_WALN_DRK <- sdg %>% select(name, regime, VC_SNS_WALN_DRK) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+gdp <- sdg %>% select(name, regime, gdp) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+pop <- sdg %>% select(name, regime, pop) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+se <- sdg %>% select(name, regime, se) %>% na.omit() %>%
+  group_by(regime) %>% summarize(count = n_distinct(name))
+
+remove(SI_COV_BENFTS, SH_ACS_UNHC, SE_TOT_CPLR, SL_TLF_UEM, IT_MOB_2GNTWK, VC_VOV_GDSD, SI_POV_50MI, SI_HEI_TOTL, EN_LND_SLUM, VC_SNS_WALN_DRK, gdp, pop)
+
+#
+
+SI_COV_BENFTS <- sdg %>% select(name, regime, SI_COV_BENFTS) %>% na.omit() %>% group_by(regime) %>% 
+  summarize(total_count = n())
+
+SH_ACS_UNHC <- sdg %>% select(name, regime, SH_ACS_UNHC) %>% na.omit() %>% group_by(regime) %>% 
+  summarize(total_count = n())
+
+SE_TOT_CPLR <- sdg %>% select(name, regime, SE_TOT_CPLR) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+SL_TLF_UEM <- sdg %>% select(name, regime, SL_TLF_UEM) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+IT_MOB_2GNTWK <- sdg %>% select(name, regime, IT_MOB_2GNTWK) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+VC_VOV_GDSD <- sdg %>% select(name, regime, VC_VOV_GDSD) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+SI_POV_50MI <- sdg %>% select(name, regime, SI_POV_50MI) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+SI_HEI_TOTL <- sdg %>% select(name, regime, SI_HEI_TOTL) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+EN_LND_SLUM <- sdg %>% select(name, regime, EN_LND_SLUM) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+VC_SNS_WALN_DRK <- sdg %>% select(name, regime, VC_SNS_WALN_DRK) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+gdp <- sdg %>% select(name, regime, gdp) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+pop <- sdg %>% select(name, regime, pop) %>% na.omit() %>%
+  group_by(regime) %>% summarize(total_count = n())
+
+remove(SI_COV_BENFTS, SH_ACS_UNHC, SE_TOT_CPLR, SL_TLF_UEM, IT_MOB_2GNTWK, VC_VOV_GDSD, SI_POV_50MI, SI_HEI_TOTL, EN_LND_SLUM, VC_SNS_WALN_DRK, gdp, pop)
+
+```
+
+# PCA
+
+```{r}
+# PCA by Country
+
+## Country Mean // Exclude SI_POV_NAHC and SD_MDP_MUHC because of conflation with SI_POV_50MI
+SI_COV_BENFTS <- sdg %>% select(SI_COV_BENFTS, name)
+length(unique(SI_COV_BENFTS$name))
+
+SI_COV_BENFTS_mean <- SI_COV_BENFTS %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SI_COV_BENFTS, na.rm = T),
+            .groups = 'drop')
+
+SH_ACS_UNHC <- sdg %>% select(SH_ACS_UNHC, name)
+length(unique(SH_ACS_UNHC$name))
+
+SH_ACS_UNHC_mean <- SH_ACS_UNHC %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SH_ACS_UNHC, na.rm = T),
+            .groups = 'drop')
+
+SE_TOT_CPLR <- sdg %>% select(SE_TOT_CPLR, name)
+length(unique(SE_TOT_CPLR$name))
+
+SE_TOT_CPLR_mean <- SE_TOT_CPLR %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SE_TOT_CPLR, na.rm = T),
+            .groups = 'drop')
+
+SL_TLF_UEM <- sdg %>% select(SL_TLF_UEM, name)
+length(unique(SL_TLF_UEM$name))
+
+SL_TLF_UEM_mean <- SL_TLF_UEM %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SL_TLF_UEM, na.rm = T),
+            .groups = 'drop')
+
+IT_MOB_2GNTWK <- sdg %>% select(IT_MOB_2GNTWK, name)
+length(unique(IT_MOB_2GNTWK$name))
+
+IT_MOB_2GNTWK_mean <- IT_MOB_2GNTWK %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(IT_MOB_2GNTWK, na.rm = T),
+            .groups = 'drop')
+
+VC_VOV_GDSD <- sdg %>% select(VC_VOV_GDSD, name)
+length(unique(VC_VOV_GDSD$name))
+
+VC_VOV_GDSD_mean <- VC_VOV_GDSD %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(VC_VOV_GDSD, na.rm = T),
+            .groups = 'drop')
+
+SI_POV_50MI <- sdg %>% select(SI_POV_50MI, name)
+length(unique(SI_POV_50MI$name))
+
+SI_POV_50MI_mean <- SI_POV_50MI %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SI_POV_50MI, na.rm = T),
+            .groups = 'drop')
+
+SI_HEI_TOTL <- sdg %>% select(SI_HEI_TOTL, name)
+length(unique(SI_HEI_TOTL$name))
+
+SI_HEI_TOTL_mean <- SI_HEI_TOTL %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(SI_HEI_TOTL, na.rm = T),
+            .groups = 'drop')
+
+EN_LND_SLUM <- sdg %>% select(EN_LND_SLUM, name)
+length(unique(EN_LND_SLUM$name))
+
+EN_LND_SLUM_mean <- EN_LND_SLUM %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(EN_LND_SLUM, na.rm = T),
+            .groups = 'drop')
+
+VC_SNS_WALN_DRK <- sdg %>% select(VC_SNS_WALN_DRK, name)
+length(unique(VC_SNS_WALN_DRK$name))
+
+VC_SNS_WALN_DRK_mean <- VC_SNS_WALN_DRK %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(VC_SNS_WALN_DRK, na.rm = T),
+            .groups = 'drop')
+
+gdp <- sdg %>% select(gdp, name)
+length(unique(gdp$name))
+
+gdp <- gdp %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(gdp, na.rm = T),
+            .groups = 'drop')
+
+pop <- sdg %>% select(pop, name)
+length(unique(pop$name))
+
+pop <- pop %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(pop, na.rm = T),
+            .groups = 'drop')
+
+psnv <- sdg %>% select(psnv, name)
+length(unique(psnv$name))
+
+psnv <- psnv %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(psnv, na.rm = T),
+            .groups = 'drop')
+
+ge <- sdg %>% select(ge, name)
+length(unique(ge$name))
+
+ge <- ge %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(ge, na.rm = T),
+            .groups = 'drop')
+
+coc <- sdg %>% select(coc, name)
+length(unique(coc$name))
+
+coc <- coc %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(coc, na.rm = T),
+            .groups = 'drop')
+
+se <- sdg %>% select(se, name)
+length(unique(se$name))
+
+se <- se %>% 
+  group_by(name) %>% 
+  summarize(mean = mean(se, na.rm = T),
+            .groups = 'drop')
+
+means <- full_join(SI_COV_BENFTS_mean, SH_ACS_UNHC_mean, by = 'name')
+means <- full_join(means, SE_TOT_CPLR_mean, by = 'name')
+means <- full_join(means, SL_TLF_UEM_mean, by = 'name')
+means <- full_join(means, IT_MOB_2GNTWK_mean, by = 'name')
+means <- full_join(means, VC_VOV_GDSD_mean, by = 'name')
+means <- full_join(means, SI_POV_50MI_mean, by = 'name')
+means <- full_join(means, SI_HEI_TOTL_mean, by = 'name')
+means <- full_join(means, EN_LND_SLUM_mean, by = 'name')
+means <- full_join(means, VC_SNS_WALN_DRK_mean, by = 'name')
+means <- full_join(means, gdp, by = 'name')
+means <- full_join(means, pop, by = 'name')
+means <- full_join(means, psnv, by = 'name')
+means <- full_join(means, ge, by = 'name')
+means <- full_join(means, coc, by = 'name')
+means <- full_join(means, se, by = "name")
+
+names(means) <- c("name", "SI_COV_BENFTS", "SH_ACS_UNHC", "SE_TOT_CPLR", "SL_TLF_UEM", "IT_MOB_2GNTWK", "VC_VOV_GDSD", "SI_POV_50MI", "SI_HEI_TOTL", "EN_LND_SLUM", "VC_SNS_WALN_DRK", "gdp", "pop", "psnv", "ge", "coc", "se")
+
+## Estimate PCA with imputed missing data
+
+### Estimate optimal number of dimensions
+numerical_data <- means[,2:11] # select only numerical variables
+data_normalized <- scale(numerical_data) # normalize variables
+
+nb <- estim_ncpPCA(data_normalized, method.cv = "Kfold", verbose = FALSE)
+nb$ncp # 1 dimension
+plot(0:5, nb$criterion, xlab = "nb dim", ylab = "MSEP")
+
+res.comp <- imputePCA(data_normalized, ncp = nb$ncp) # iterativePCA algorithm
+res.comp$completeObs[1:3,] # the imputed data set
+
+wr.2 <- read_excel("~/Welfare Regimes.xlsx", sheet = "Matched")
+
+imp <- cbind.data.frame(wr.2, res.comp$completeObs)
+
+res.pca <- PCA(imp, quanti.sup = 1, quali.sup = 2:4, ncp = nb$ncp, graph = FALSE)
+
+fviz_eig(res.pca, addlabels = TRUE, barfill = 'darkgrey', barcolor = 'darkgrey')
+fviz_cos2(res.pca, choice = "var", axes = 1, fill = 'darkgrey', color = 'darkgrey')
+
+imp$pca <- res.pca$ind$coord
+imp$gdp <- means$gdp
+imp$psnv <- means$psnv
+imp$ge <- means$ge
+imp$coc <- means$coc
+imp$se <- means$se
+
+country.pca <- imp
+country.pca$pca <- scale(country.pca$pca) # normalize pca
+
+```
+
+```{r}
+# PCA by Regime
+
+## Regime Mean // Exclude SI_POV_NAHC and SD_MDP_MUHC because of conflation with SI_POV_50MI
+SI_COV_BENFTS <- sdg %>% select(SI_COV_BENFTS, regime)
+length(unique(SI_COV_BENFTS$regime))
+
+SI_COV_BENFTS_mean <- SI_COV_BENFTS %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SI_COV_BENFTS, na.rm = T),
+            .groups = 'drop')
+
+SH_ACS_UNHC <- sdg %>% select(SH_ACS_UNHC, regime)
+length(unique(SH_ACS_UNHC$regime))
+
+SH_ACS_UNHC_mean <- SH_ACS_UNHC %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SH_ACS_UNHC, na.rm = T),
+            .groups = 'drop')
+
+SE_TOT_CPLR <- sdg %>% select(SE_TOT_CPLR, regime)
+length(unique(SE_TOT_CPLR$regime))
+
+SE_TOT_CPLR_mean <- SE_TOT_CPLR %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SE_TOT_CPLR, na.rm = T),
+            .groups = 'drop')
+
+SL_TLF_UEM <- sdg %>% select(SL_TLF_UEM, regime)
+length(unique(SL_TLF_UEM$regime))
+
+SL_TLF_UEM_mean <- SL_TLF_UEM %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SL_TLF_UEM, na.rm = T),
+            .groups = 'drop')
+
+IT_MOB_2GNTWK <- sdg %>% select(IT_MOB_2GNTWK, regime)
+length(unique(IT_MOB_2GNTWK$regime))
+
+IT_MOB_2GNTWK_mean <- IT_MOB_2GNTWK %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(IT_MOB_2GNTWK, na.rm = T),
+            .groups = 'drop')
+
+VC_VOV_GDSD <- sdg %>% select(VC_VOV_GDSD, regime)
+length(unique(VC_VOV_GDSD$regime))
+
+VC_VOV_GDSD_mean <- VC_VOV_GDSD %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(VC_VOV_GDSD, na.rm = T),
+            .groups = 'drop')
+
+SI_POV_50MI <- sdg %>% select(SI_POV_50MI, regime)
+length(unique(SI_POV_50MI$regime))
+
+SI_POV_50MI_mean <- SI_POV_50MI %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SI_POV_50MI, na.rm = T),
+            .groups = 'drop')
+
+SI_HEI_TOTL <- sdg %>% select(SI_HEI_TOTL, regime)
+length(unique(SI_HEI_TOTL$regime))
+
+SI_HEI_TOTL_mean <- SI_HEI_TOTL %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(SI_HEI_TOTL, na.rm = T),
+            .groups = 'drop')
+
+EN_LND_SLUM <- sdg %>% select(EN_LND_SLUM, regime)
+length(unique(EN_LND_SLUM$regime))
+
+EN_LND_SLUM_mean <- EN_LND_SLUM %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(EN_LND_SLUM, na.rm = T),
+            .groups = 'drop')
+
+VC_SNS_WALN_DRK <- sdg %>% select(VC_SNS_WALN_DRK, regime)
+length(unique(VC_SNS_WALN_DRK$regime))
+
+VC_SNS_WALN_DRK_mean <- VC_SNS_WALN_DRK %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(VC_SNS_WALN_DRK, na.rm = T),
+            .groups = 'drop')
+
+gdp <- sdg %>% select(gdp, regime)
+length(unique(gdp$regime))
+
+gdp <- gdp %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(gdp, na.rm = T),
+            .groups = 'drop')
+
+pop <- sdg %>% select(pop, regime)
+length(unique(pop$regime))
+
+pop <- pop %>% 
+  group_by(regime) %>% 
+  summarize(mean = mean(pop, na.rm = T),
+            .groups = 'drop')
+
+means <- full_join(SI_COV_BENFTS_mean, SH_ACS_UNHC_mean, by = 'regime')
+means <- full_join(means, SE_TOT_CPLR_mean, by = 'regime')
+means <- full_join(means, SL_TLF_UEM_mean, by = 'regime')
+means <- full_join(means, IT_MOB_2GNTWK_mean, by = 'regime')
+means <- full_join(means, VC_VOV_GDSD_mean, by = 'regime')
+means <- full_join(means, SI_POV_50MI_mean, by = 'regime')
+means <- full_join(means, SI_HEI_TOTL_mean, by = 'regime')
+means <- full_join(means, EN_LND_SLUM_mean, by = 'regime')
+means <- full_join(means, VC_SNS_WALN_DRK_mean, by = 'regime')
+means <- full_join(means, gdp, by = 'regime')
+means <- full_join(means, pop, by = 'regime')
+
+names(means) <- c("regime", "SI_COV_BENFTS", "SH_ACS_UNHC", "SE_TOT_CPLR", "SL_TLF_UEM", "IT_MOB_2GNTWK", "VC_VOV_GDSD", "SI_POV_50MI", "SI_HEI_TOTL", "EN_LND_SLUM", "VC_SNS_WALN_DRK", "gdp", "pop")
+
+## Estimate PCA with imputed missing data
+
+### Estimate optimal number of dimensions
+numerical_data <- means[,2:11] # select only numerical variables
+data_normalized <- scale(numerical_data) # normalize variables
+
+nb <- estim_ncpPCA(data_normalized, method.cv = "Kfold", verbose = FALSE)
+nb$ncp # 1 dimension
+plot(0:5, nb$criterion, xlab = "nb dim", ylab = "MSEP")
+
+res.comp <- imputePCA(data_normalized, ncp = nb$ncp) # iterativePCA algorithm
+res.comp$completeObs[1:3,] # the imputed data set
+
+wr <- data.frame(means$regime)
+regime.code <- c(1:11)
+wr$regime.code <- regime.code
+names(wr) <- c("regime", "regime.code")
+
+imp <- cbind.data.frame(wr, res.comp$completeObs)
+
+res.pca <- PCA(imp, quanti.sup = 2, quali.sup = 1, ncp = nb$ncp, graph = FALSE)
+
+fviz_eig(res.pca, addlabels = TRUE)
+fviz_cos2(res.pca, choice = "var", axes = 1)
+
+imp$pca <- res.pca$ind$coord
+imp$gdp <- means$gdp
+imp$pop <- means$pop
+
+regime.pca <- imp
+```
+
+```{r}
+remove(data_normalized, EN_LND_SLUM, EN_LND_SLUM_mean, gdp, imp, IT_MOB_2GNTWK, IT_MOB_2GNTWK_mean, means, nb, numerical_data, pop, res.comp, res.pca, SE_TOT_CPLR, SE_TOT_CPLR_mean, SH_ACS_UNHC, SH_ACS_UNHC_mean, SI_COV_BENFTS, SI_COV_BENFTS_mean, SI_HEI_TOTL, SI_HEI_TOTL_mean, SI_POV_50MI, SI_POV_50MI_mean, SL_TLF_UEM, SL_TLF_UEM_mean, VC_SNS_WALN_DRK, VC_SNS_WALN_DRK_mean, VC_VOV_GDSD, VC_VOV_GDSD_mean, wr, regime.code, psnv, ge, coc, se)
+```
+
+# Cluster Analysis
+
+```{r}
+# Univariate K-means Clustering for PCA by Country
+# https://cran.r-project.org/web/packages/Ckmeans.1d.dp/vignettes/Ckmeans.1d.dp.html
+## Optimal number of clusters
+opt <- Ckmeans.1d.dp(country.pca$pca) # two clusters
+
+country.pca$opt <- opt$cluster
+
+plot(country.pca$pca, col = opt$cluster, pch = opt$cluster, cex = 1.5)
+midpoint <- ahist(opt, style = "midpoints", data = country.pca$pca, plot = F)$breaks[2]
+
+ggplot(data = country.pca, aes(x = 1:nrow(country.pca), y = pca, color = as.factor(opt))) +
+  geom_jitter() +
+  theme_minimal() +
+  scale_color_manual(values = c("black", "grey")) +
+  geom_hline(yintercept = midpoint, linetype = "dashed", color = "black", size = .5) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  labs(y = "PCA", color = "Cluster")
+
+ggplot(data = country.pca, aes(x = 1:nrow(country.pca), y = pca, shape = regime, color = as.factor(opt))) +
+  geom_jitter() +
+  theme_minimal() +
+  scale_shape_manual(values = 1:11) +
+  scale_color_manual(values = c("black", "grey")) +
+  geom_hline(yintercept = midpoint, linetype = "dashed", color = "black", size = .5) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  labs(y = "PCA", color = "Cluster", shape = "Regime Type")
+
+# Descriptives of PCA by cluster
+group_by(country.pca, opt) %>%
+  summarise(
+    count = n(),
+    mean = mean(pca, na.rm = TRUE),
+    se = std.error(pca, na.rm = TRUE),
+    sd = sd(pca, na.rm = TRUE)
+  )
+
+country.pca %>% group_by(opt) %>% 
+  summarize_all(.f = list(mean = mean, se = std.error, sd = sd), na.rm = TRUE)
+
+# Bivariate Model-based Clustering for PCA by Country
+# https://bradleyboehmke.github.io/HOML/model-clustering.html
+## Optimal number of clusters and covariance matrix
+#mbc <- country.pca %>% select(pca, gdp)
+#mbc$gdp <- log(mbc$gdp) # log transform gdp
+#mbc$gdp <- scale(mbc$gdp) # scale and center gdp
+#mbc$gdp[is.na(mbc$gdp)] <- mean(mbc$gdp, na.rm = TRUE) # input missing data for gdp with mean
+
+#opt2 <- Mclust(mbc)
+
+#plot(opt2, what = "density", xlab = "PCA")
+#grid(lty = 1)
+
+#country.pca$opt2 <- opt2$classification
+
+#ggplot(data = country.pca, aes(x = 1:nrow(country.pca), y = pca, shape = regime, color = #as.factor(opt2))) +
+#  geom_jitter() +
+#  theme_minimal() +
+#  scale_shape_manual(values = 1:11) +
+#  scale_color_manual(values = c("#000000", "#7E7E7E", "#BDBDBD")) +
+#  theme(axis.title.x = element_blank(),
+#        axis.text.x = element_blank()) +
+#  labs(y = "PCA", color = "Cluster", shape = "Regime Type")
+
+# Descriptives of PCA by cluster
+#group_by(country.pca, opt2) %>%
+#  summarise(
+#    count = n(),
+#    mean = mean(pca, na.rm = TRUE),
+#    se = std.error(pca, na.rm = TRUE),
+#    sd = sd(pca, na.rm = TRUE)
+#  )
+
+#country.pca %>% group_by(opt2) %>% 
+#  summarize_all(.f = list(mean = mean, sd = sd), na.rm = TRUE)
+
+# Multivariate Model-based Clustering for PCA by Country
+# https://bradleyboehmke.github.io/HOML/model-clustering.html
+## Optimal number of clusters and covariance matrix
+mbc <- country.pca %>% select(pca, se, ge, coc)
+
+library(bestNormalize)
+BNobject <- bestNormalize(mbc$se) # best transformation is log
+mbc$se <- log(mbc$se) # log transform se
+mbc$se <- scale(mbc$se) # scale and center se
+mbc$se[is.na(mbc$se)] <- mean(mbc$se, na.rm = TRUE) # input missing data for se with mean
+
+mbc$ge <- scale(mbc$ge) # scale and center ge
+mbc$ge[is.na(mbc$ge)] <- mean(mbc$ge, na.rm = TRUE) # input missing data for ge with mean
+
+mbc$coc <- scale(mbc$coc) # scale and center coc
+mbc$coc[is.na(mbc$coc)] <- mean(mbc$coc, na.rm = TRUE) # input missing data for coc with mean
+
+opt3 <- Mclust(mbc)
+
+plot(opt3, what = "density", xlab = "PCA")
+plot(opt3, what = "uncertainty", xlab = "PCA")
+plot(opt3, what = "classification", xlab = "PCA", col = c(1:6))
+plot(opt3, what = "classification", xlab = "PCA", col = c("#000000", "#3F3F3F", "#696969", "#7E7E7E", "#939393", "#D3D3D3"))
+
+country.pca$opt3 <- opt3$classification
+
+ggplot(data = country.pca, aes(x = 1:nrow(country.pca), y = pca, shape = regime, color = as.factor(opt3))) +
+  geom_jitter() +
+  theme_minimal() +
+  scale_shape_manual(values = 1:11) +
+  scale_color_manual(values = c("#000000", "#3F3F3F", "#696969", "#7E7E7E", "#939393", "#D3D3D3")) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  labs(y = "PCA", color = "Cluster", shape = "Regime Type")
+
+# Descriptives of PCA by cluster
+group_by(country.pca, opt3) %>%
+  summarise(
+    count = n(),
+    mean = mean(pca, na.rm = TRUE),
+    se = std.error(pca, na.rm = TRUE),
+    sd = sd(pca, na.rm = TRUE)
+  )
+
+country.pca %>% group_by(opt3) %>% 
+  summarize_all(.f = list(mean = mean, se = std.error, sd = sd), na.rm = TRUE)
+
+# Opt3 by Regime
+country.pca.opt4 <- group_by(country.pca, regime) %>%
+  summarise(
+    pca = mean(pca, na.rm = TRUE),
+    gdp = mean(gdp, na.rm = TRUE),
+    psnv = mean(psnv, na.rm = TRUE),
+    ge = mean(ge, na.rm = TRUE),
+    coc = mean(coc, na.rm = TRUE)
+  )
+
+opt4 <- Mclust(country.pca.opt4)
+
+plot(opt4, what = "density", xlab = "PCA")
+plot(opt4, what = "uncertainty", xlab = "PCA")
+plot(opt4, what = "classification", xlab = "PCA")
+
+```
+
+# Visualizations
+
+```{r}
+# Plot PCA by Country
+ggplot(data = country.pca, aes(x = 1:nrow(country.pca), y = pca, group = regime, shape = regime, color = regime)) +
+  geom_jitter() +
+  theme_minimal() +
+  scale_shape_manual(values = 1:11) +
+  scale_color_manual(values = c("#000000", "#151515", "#2A2A2A", "#3F3F3F", "#545454", "#696969", "#7E7E7E", "#939393", "#A8A8A8", "#BDBDBD", "#D3D3D3")) +
+  geom_hline(yintercept = midpoint, linetype = "dashed", color = "black", size = .5) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  labs(y = "PCA", color = "Regime Type", shape = "Regime Type")
+
+# Plot PCA by Regime
+country.pca.sum <- group_by(country.pca, regime) %>%
+  summarise(
+    pca.mean = mean(pca, na.rm = TRUE),
+    pca.sd = sd(pca, na.rm = TRUE)
+  )
+
+ggplot(data = country.pca.sum, aes(x = 1:nrow(country.pca.sum), y = pca.mean, group = regime, shape = regime, color = regime)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = pca.mean - pca.sd, ymax = pca.mean + pca.sd), linewidth = .2, width = .2, show.legend = FALSE) +
+  theme_minimal() +
+  ylim(-2, 2) +
+  scale_shape_manual(values = 1:11) +
+  scale_color_manual(values = c("#000000", "#151515", "#2A2A2A", "#3F3F3F", "#545454", "#696969", "#7E7E7E", "#939393", "#A8A8A8", "#BDBDBD", "#D3D3D3")) +
+  geom_hline(yintercept = midpoint, linetype = "dashed", color = "black", size = .5) +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank()) +
+  labs(y = "PCA", color = "Regime Type", shape = "Regime Type")
+
+# Plot with PCA by Opt3
+# ggplot(data = country.pca.sum, aes(x = 1:nrow(country.pca.sum), y = pca.mean, shape = regime, color = opt3)) +
+  # geom_point() +
+  # eom_errorbar(aes(ymin = pca.mean - pca.sd, ymax = pca.mean + pca.sd), linewidth = .2, width = .2, show.legend = FALSE) +
+  # theme_minimal() +
+  # scale_shape_manual(values = 1:11) +
+  # scale_color_manual(values = c("#000000", "#151515", "#2A2A2A", "#3F3F3F", "#545454", "#696969", "#7E7E7E", "#939393", "#A8A8A8", "#BDBDBD", "#D3D3D3")) +
+  # labs(y = "PCA", shape = "Regime Type", color = "Regime Type")
+```
+
+```{r}
+# Importance Boxplot
+Regime <- c("Anti-Welfare Conservative", "Anti-Welfare Conservative", "Anti-Welfare Conservative", "Anti-Welfare Conservative", "Anti-Welfare Conservative", "Anti-Welfare Conservative", "Christian Democratic", "Christian Democratic", "Christian Democratic", "Christian Democratic", "Christian Democratic", "Christian Democratic", "Exclusion-Based", "Exclusion-Based", "Exclusion-Based", "Exclusion-Based", "Exclusion-Based", "Exclusion-Based", "Extremely Rudimentary", "Extremely Rudimentary", "Extremely Rudimentary", "Extremely Rudimentary", "Extremely Rudimentary", "Extremely Rudimentary", "Neoliberal", "Neoliberal", "Neoliberal", "Neoliberal", "Neoliberal", "Neoliberal", "Pro-Welfare Conservative", "Pro-Welfare Conservative", "Pro-Welfare Conservative", "Pro-Welfare Conservative", "Pro-Welfare Conservative", "Pro-Welfare Conservative", "Selective Rudimentary", "Selective Rudimentary", "Selective Rudimentary", "Selective Rudimentary", "Selective Rudimentary", "Selective Rudimentary", "Slightly Universal", "Slightly Universal", "Slightly Universal", "Slightly Universal", "Slightly Universal", "Slightly Universal", "Social Democratic", "Social Democratic", "Social Democratic", "Social Democratic", "Social Democratic", "Social Democratic", "Socialist/Communist", "Socialist/Communist", "Socialist/Communist", "Socialist/Communist", "Socialist/Communist", "Socialist/Communist")
+Cluster <- c("Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six", "Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six")
+Count <- c(7,	12, 1, 0, 0, 0, 1, 6, 1, 11, 0, 0,  0, 1, 5, 0,	1, 0, 14, 5, 0, 0, 0, 8, 0, 0, 0, 5, 0, 0, 2, 4, 2, 1, 0, 0, 8, 3, 0, 0, 0, 0, 5, 1, 1, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 1, 0, 0, 0)
+
+df <- data.frame(Regime, Cluster, Count)
+df$Regime <- factor(df$Regime, levels = unique(df$Regime))
+
+library(ggplot2)
+library(stringr)
+
+Cluster <- ggplot(data = df, aes(x = Count, y = Regime, fill = Cluster)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0, 30, by = 10)) +
+  xlim(0, 30) +
+  scale_fill_manual(breaks = c("Cluster One", "Cluster Two", "Cluster Three", "Cluster Four", "Cluster Five", "Cluster Six"),
+                    values = c("#151515", "#3F3F3F", "#696969", "#7E7E7E", "#BDBDBD", "#D3D3D3")) +
+  theme(legend.position = "bottom",
+        text = element_text(size = 18)) +
+  guides(fill = guide_legend(title.position = "top", title.hjust = .5))
+
+## export with aspect ratio width 1000
+```
+
+# ANOVA
+
+```{r}
+# ANOVA of Country PCA by Regime
+
+country.pca %>% group_by(regime) %>% 
+  summarize(across(everything(), .f = list(mean = mean, se = std.error, sd = sd), na.rm = TRUE))
+
+# Remove Regime == "Socialist/Communist" (Cuba) because of n = 1
+dta.anova <- country.pca %>% filter(regime != "Socialist/Communist")
+
+# Check normality
+hist(dta.anova$pca)
+x <- ggplot(data = dta.anova, aes(x = pca, group = regime, fill = regime)) +
+    geom_density() +
+    theme_minimal() +
+    facet_wrap(~regime) +
+    theme(
+      legend.position = "none",
+      panel.spacing = unit(0.1, "lines"),
+      axis.ticks.x = element_blank()
+    ) # normal enough
+
+# Check equal variances
+boxplot(pca ~ regime, xlab = 'Regime', ylab = 'PCA', data = dta.anova) # non-equal variance
+bartlett.test(pca ~ regime, data = dta.anova) # non-equal variance
+
+# Descriptives of PCA by regime
+group_by(dta.anova, regime) %>%
+  summarise(
+    count = n(),
+    mean = mean(pca, na.rm = TRUE),
+    se = std.error(pca, na.rm = TRUE),
+    sd = sd(pca, na.rm = TRUE)
+  )
+
+dta.anova$regime_code <- as.factor(dta.anova$regime_code)
+
+# One-way analysis of means (not assuming equal variances)
+aov <- oneway.test(pca ~ as.factor(regime_code), data = dta.anova, var.equal = FALSE) # statistically significant differences between groups
+
+# Games-Howell post-hoc test (selected because of parametric but does not assume equal group variance)
+games_howell_test(data = dta.anova, formula = pca ~ regime_code, conf.level = 0.95, detailed = T)
+```
+
+
+
+
